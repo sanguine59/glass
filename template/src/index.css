@@ -1,0 +1,37 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+body {
+  margin: 0;
+}
+
+main {
+  padding: 1.5rem;
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+h1 {
+  margin-top: 0;
+}
+
+button {
+  font: inherit;
+  padding: 0.6rem 1.2rem;
+  border-radius: 0.5rem;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+}
+
+code {
+  font-family: ui-monospace, monospace;
+}
+
+.hint {
+  opacity: 0.7;
+  font-size: 0.9rem;
+}
