@@ -50,6 +50,48 @@ for f in "$SRC"/*; do
   [ -n "${seen[$name]:-}" ] || echo "    note: $name is not in the closure (unused?)"
 done
 
+echo "==> checking symbol versions"
+skew=0
+
+version_needs() {
+  readelf -V -W "$1" 2>/dev/null |
+    sed -n '/Version needs section/,/^$/p' |
+    awk '/File:/ { sub(/.*File: /, ""); sub(/ .*/, ""); file = $0 }
+         /Name:/ { sub(/.*Name: /, ""); sub(/ .*/, ""); print file, $0 }'
+}
+
+version_defs() {
+  readelf -V -W "$1" 2>/dev/null |
+    sed -n '/Version definition section/,/^$/p' |
+    awk '/Name:/ { sub(/.*Name: /, ""); sub(/ .*/, ""); print }'
+}
+
+for consumer in "$NODE" "$SRC"/*; do
+  cname="$(basename "$consumer")"
+  while read -r lib ver; do
+    [ -z "$lib" ] && continue
+    if printf '%s\n' $system_libs | grep -qx "$lib"; then
+      continue
+    fi
+    [ -f "$SRC/$lib" ] || continue
+    if version_defs "$SRC/$lib" | grep -qx "$ver"; then
+      printf '    %-18s -> %-18s %-18s ok\n' "$cname" "$lib" "$ver"
+    else
+      printf '    %-18s -> %-18s %-18s \033[31mMISSING\033[0m\n' "$cname" "$lib" "$ver"
+      skew=$((skew + 1))
+    fi
+  done < <(version_needs "$consumer")
+done
+
+if [ "$skew" -gt 0 ]; then
+  echo
+  echo "$skew versioned dependency/dependencies unsatisfied." >&2
+  echo "A bundled library is an older build than the binary that needs it." >&2
+  echo "Re-copy the whole \$PREFIX/lib set from one Termux install so the" >&2
+  echo "versions match, then re-run." >&2
+  exit 1
+fi
+
 echo "==> zipping"
 mkdir -p "$ASSETS"
 rm -f "$OUT"
