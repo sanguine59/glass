@@ -1,7 +1,10 @@
 package com.example.myapplication.data.repository
 
 import com.example.myapplication.data.local.FileStorage
+import com.example.myapplication.data.model.CodeLine
+import com.example.myapplication.data.model.FileContent
 import com.example.myapplication.data.model.FileEntry
+import com.example.myapplication.util.TextSniffer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -54,5 +57,40 @@ class FileRepository(private val storage: FileStorage) {
             if (storage.delete(File(entry.path))) Result.success(Unit)
             else Result.failure(IllegalStateException("Delete failed"))
         }
+    }
+
+    suspend fun open(path: String): Result<FileContent> = withContext(Dispatchers.IO) {
+        runCatching {
+            val file = File(path)
+            val size = storage.size(file)
+            when {
+                !TextSniffer.isText(storage.read(file, SAMPLE_BYTES)) -> FileContent.Binary
+                size > MAX_TEXT_BYTES -> FileContent.TooLarge(size)
+                else -> FileContent.Text(toLines(storage.read(file, MAX_TEXT_BYTES).decodeToString()))
+            }
+        }
+    }
+
+    private fun toLines(text: String): List<CodeLine> {
+        val body = text.removePrefix("\uFEFF")
+        if (body.isEmpty()) return emptyList()
+        val lines = body.split('\n').toMutableList()
+        if (lines.size > 1 && lines.last().isEmpty()) lines.removeAt(lines.lastIndex)
+        return lines.flatMapIndexed { index, raw ->
+            val line = raw.removeSuffix("\r").replace("\t", "    ")
+            if (line.length <= MAX_ROW_CHARS) {
+                listOf(CodeLine(index + 1, line))
+            } else {
+                line.chunked(MAX_ROW_CHARS).mapIndexed { chunk, part ->
+                    CodeLine(if (chunk == 0) index + 1 else null, part)
+                }
+            }
+        }
+    }
+
+    private companion object {
+        const val SAMPLE_BYTES = 8 * 1024
+        const val MAX_TEXT_BYTES = 2 * 1024 * 1024
+        const val MAX_ROW_CHARS = 1000
     }
 }

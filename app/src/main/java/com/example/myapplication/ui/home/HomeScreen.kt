@@ -39,7 +39,10 @@ import com.example.myapplication.ui.components.MonoButton
 import com.example.myapplication.ui.components.MonoDialog
 
 @Composable
-fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
+fun HomeScreen(
+    onOpenFile: (String) -> Unit,
+    viewModel: HomeViewModel = viewModel(),
+) {
     val state by viewModel.uiState.collectAsState()
     val black = colorResource(R.color.black)
     val white = colorResource(R.color.white)
@@ -82,7 +85,9 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
                 items(state.entries, key = { it.path }) { entry ->
                     EntryRow(
                         entry = entry,
-                        onClick = { viewModel.onEntryClick(entry) },
+                        onClick = {
+                            if (entry.isDirectory) viewModel.onEntryClick(entry) else onOpenFile(entry.path)
+                        },
                         onLongClick = { viewModel.onEntryLongClick(entry) },
                     )
                     HorizontalDivider(color = white.copy(alpha = 0.2f))
