@@ -31,7 +31,7 @@ class NodeRuntime(context: Context) {
         }
     }
 
-    fun environment(): Map<String, String> = buildMap {
+    fun environment(project: File = workspace): Map<String, String> = buildMap {
         put("HOME", home.absolutePath)
         put("TMPDIR", tmp.absolutePath)
         put("TMP", tmp.absolutePath)
@@ -52,8 +52,13 @@ class NodeRuntime(context: Context) {
         put("npm_config_script_shell", ANDROID_SHELL)
         put("npm_config_cache", File(home, ".npm").absolutePath)
         put("npm_config_prefix", prefix.absolutePath)
+        put("npm_config_color", "false")
+        put("npm_config_progress", "false")
+        put("npm_config_update_notifier", "false")
+        put("NO_COLOR", "1")
+        put("FORCE_COLOR", "0")
 
-        esbuildBinary().takeIf { it.isFile }?.let { put("ESBUILD_BINARY_PATH", it.absolutePath) }
+        esbuildBinary(project).takeIf { it.isFile }?.let { put("ESBUILD_BINARY_PATH", it.absolutePath) }
     }
 
     val npmCli: File = File(prefix, "lib/node_modules/npm/bin/npm-cli.js")
@@ -102,7 +107,7 @@ class NodeRuntime(context: Context) {
         return ProcessBuilder(listOf(binary.absolutePath) + args)
             .directory(cwd)
             .redirectErrorStream(true)
-            .apply { environment().putAll(this@NodeRuntime.environment()) }
+            .apply { environment().putAll(this@NodeRuntime.environment(cwd)) }
             .start()
     }
 
