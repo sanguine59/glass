@@ -34,6 +34,26 @@ class FileStorage(context: Context) {
         return file.deleteRecursively()
     }
 
+    fun size(file: File): Long {
+        requireInside(file)
+        return file.length()
+    }
+
+    fun read(file: File, limit: Int): ByteArray {
+        requireInside(file)
+        require(file.isFile) { "${file.name} is not a file" }
+        return file.inputStream().use { input ->
+            val buffer = ByteArray(limit)
+            var total = 0
+            while (total < limit) {
+                val read = input.read(buffer, total, limit - total)
+                if (read < 0) break
+                total += read
+            }
+            buffer.copyOf(total)
+        }
+    }
+
     fun isRoot(dir: File): Boolean = dir.canonicalFile == root
 
     private fun requireInside(file: File) {
