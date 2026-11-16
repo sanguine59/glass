@@ -2,10 +2,13 @@ package com.example.myapplication.data.local
 
 import android.content.Context
 import java.io.File
+import java.util.UUID
 
 class FileStorage(context: Context) {
 
     val root: File = File(context.applicationContext.filesDir, "projects").canonicalFile
+
+    private val staging: File = File(context.applicationContext.cacheDir, "import")
 
     fun list(dir: File): List<File> {
         requireInside(dir)
@@ -52,6 +55,20 @@ class FileStorage(context: Context) {
             }
             buffer.copyOf(total)
         }
+    }
+
+    fun newStagingDir(): File = File(staging, UUID.randomUUID().toString()).apply { mkdirs() }
+
+    fun moveInto(source: File, dir: File, name: String): File {
+        requireInside(dir)
+        val target = File(dir, name)
+        requireInside(target)
+        check(!target.exists()) { "\"$name\" already exists" }
+        if (!source.renameTo(target)) {
+            source.copyRecursively(target)
+            source.deleteRecursively()
+        }
+        return target
     }
 
     fun isRoot(dir: File): Boolean = dir.canonicalFile == root
