@@ -2,6 +2,7 @@ package com.example.myapplication.ui.viewer
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -21,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -44,6 +46,8 @@ import com.example.myapplication.R
 import com.example.myapplication.data.model.CodeLine
 import com.example.myapplication.data.model.FileContent
 import com.example.myapplication.data.model.isActive
+import com.example.myapplication.ui.components.MonoButton
+import com.example.myapplication.ui.components.MonoDialog
 import java.util.Locale
 
 @Composable
@@ -58,9 +62,17 @@ fun FileViewerScreen(
 
     LaunchedEffect(path) { viewModel.open(path) }
 
-    BackHandler {
+    val closeViewer = {
         viewModel.close()
         onBack()
+    }
+
+    BackHandler {
+        if (viewModel.requestClose()) closeViewer()
+    }
+
+    val isDirty by remember(state.editor, state.savedText) {
+        derivedStateOf { state.editor?.text?.contentEquals(state.savedText) == false }
     }
 
     val runState by viewModel.runState.collectAsState()
@@ -87,7 +99,7 @@ fun FileViewerScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = state.name,
+                    text = if (isDirty) "${state.name} •" else state.name,
                     color = white,
                     fontSize = 20.sp,
                     maxLines = 1,
@@ -96,6 +108,18 @@ fun FileViewerScreen(
                         .weight(1f)
                         .padding(vertical = 12.dp),
                 )
+                if (state.editor != null) {
+                    TextButton(
+                        onClick = { viewModel.save() },
+                        enabled = isDirty && !state.isSaving,
+                    ) {
+                        Text(
+                            text = "save",
+                            color = if (isDirty && !state.isSaving) white else white.copy(alpha = 0.3f),
+                            fontSize = 16.sp,
+                        )
+                    }
+                }
                 TextButton(
                     onClick = {
                         if (!isActive && panel <= PANEL_MIN_HEIGHT) panelHeight = expandedPanel.value
@@ -115,9 +139,11 @@ fun FileViewerScreen(
 
             Box(modifier = Modifier.weight(1f)) {
                 val content = state.content
+                val editor = state.editor
                 when {
                     state.isLoading -> Message("loading", white)
                     state.error != null -> Message(state.error.orEmpty(), white)
+                    content is FileContent.Editable && editor != null -> CodeEditor(editor, white)
                     content is FileContent.Binary -> Message("binary file, can't be displayed", white)
                     content is FileContent.TooLarge -> Message("file too large to display (${formatSize(content.bytes)})", white)
                     content is FileContent.Text && content.lines.isEmpty() -> Message("empty file", white)
@@ -135,6 +161,30 @@ fun FileViewerScreen(
                 },
             )
         }
+    }
+
+    when (val dialog = state.dialog) {
+        ViewerDialog.UnsavedChanges -> MonoDialog(title = "Unsaved changes", onDismiss = viewModel::dismissDialog) {
+            Text(text = "Save changes to \"${state.name}\"?", color = white)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                MonoButton(text = "Discard", onClick = closeViewer)
+                MonoButton(text = "Cancel", onClick = viewModel::dismissDialog)
+                MonoButton(
+                    text = "Save",
+                    onClick = {
+                        viewModel.dismissDialog()
+                        viewModel.save(onSaved = closeViewer)
+                    },
+                )
+            }
+        }
+        is ViewerDialog.SaveFailed -> MonoDialog(title = "Save failed", onDismiss = viewModel::dismissDialog) {
+            Text(text = dialog.message, color = white)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                MonoButton(text = "OK", onClick = viewModel::dismissDialog)
+            }
+        }
+        null -> Unit
     }
 }
 
