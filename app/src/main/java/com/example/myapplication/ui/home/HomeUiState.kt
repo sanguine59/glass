@@ -6,13 +6,14 @@ data class HomeUiState(
     val title: String = "glass",
     val isRoot: Boolean = true,
     val entries: List<FileEntry> = emptyList(),
+    val isImporting: Boolean = false,
     val dialog: HomeDialog? = null,
 )
 
 sealed interface HomeDialog {
-    val entry: FileEntry
-
-    data class Actions(override val entry: FileEntry) : HomeDialog
-    data class Rename(override val entry: FileEntry, val error: String? = null) : HomeDialog
-    data class Delete(override val entry: FileEntry, val error: String? = null) : HomeDialog
+    data object Create : HomeDialog
+    data class Actions(val entry: FileEntry) : HomeDialog
+    data class Rename(val entry: FileEntry, val error: String? = null) : HomeDialog
+    data class Delete(val entry: FileEntry, val error: String? = null) : HomeDialog
+    data class Error(val title: String, val message: String) : HomeDialog
 }

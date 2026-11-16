@@ -1,6 +1,8 @@
 package com.example.myapplication.data.repository
 
+import android.net.Uri
 import com.example.myapplication.data.local.FileStorage
+import com.example.myapplication.data.local.ZipImporter
 import com.example.myapplication.data.model.CodeLine
 import com.example.myapplication.data.model.FileContent
 import com.example.myapplication.data.model.FileEntry
@@ -11,7 +13,10 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 
-class FileRepository(private val storage: FileStorage) {
+class FileRepository(
+    private val storage: FileStorage,
+    private val zipImporter: ZipImporter,
+) {
 
     private val writeLock = Mutex()
 
@@ -57,6 +62,43 @@ class FileRepository(private val storage: FileStorage) {
             if (storage.delete(File(entry.path))) Result.success(Unit)
             else Result.failure(IllegalStateException("Delete failed"))
         }
+    }
+
+    suspend fun importZip(uri: Uri, dir: File): Result<String> = writeLock.withLock {
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val staging = storage.newStagingDir()
+                try {
+                    zipImporter.extract(uri, staging)
+                    val content = staging.listFiles().orEmpty().singleOrNull()?.takeIf { it.isDirectory } ?: staging
+                    val name = uniqueName(dir, importName(zipImporter.displayName(uri)))
+                    storage.moveInto(content, dir, name)
+                    name
+                } finally {
+                    staging.deleteRecursively()
+                }
+            }
+        }
+    }
+
+    private fun importName(displayName: String?): String {
+        val base = displayName.orEmpty()
+            .let { if (it.endsWith(".zip", ignoreCase = true)) it.dropLast(4) else it }
+            .replace('/', '_')
+            .replace('\u0000', '_')
+            .trim()
+        return if (base.isEmpty() || base == "." || base == "..") "imported" else base
+    }
+
+    private fun uniqueName(dir: File, base: String): String =
+        generateSequence(1) { it + 1 }
+            .map { if (it == 1) base else "$base ($it)" }
+            .first { !storage.exists(dir, it) }
+
+    suspend fun findProjectRoot(path: String): File? = withContext(Dispatchers.IO) {
+        generateSequence(File(path).parentFile) { dir -> dir.parentFile.takeUnless { storage.isRoot(dir) } }
+            .takeWhile { storage.contains(it) }
+            .firstOrNull { File(it, "package.json").isFile }
     }
 
     suspend fun open(path: String): Result<FileContent> = withContext(Dispatchers.IO) {

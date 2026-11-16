@@ -8,4 +8,5 @@ data class FileViewerUiState(
     val isLoading: Boolean = true,
     val content: FileContent? = null,
     val error: String? = null,
+    val projectPath: String? = null,
 )

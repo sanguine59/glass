@@ -1,11 +1,11 @@
 package com.example.myapplication.ui.home
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.myapplication.data.local.FileStorage
+import com.example.myapplication.GlassApplication
 import com.example.myapplication.data.model.FileEntry
-import com.example.myapplication.data.repository.FileRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,7 +16,7 @@ import java.io.File
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository = FileRepository(FileStorage(application))
+    private val repository = (application as GlassApplication).container.fileRepository
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -42,11 +42,33 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         load(currentDir.parentFile ?: repository.root)
     }
 
+    fun showCreate() {
+        _uiState.update { it.copy(dialog = HomeDialog.Create) }
+    }
+
     fun addFolder() {
+        dismissDialog()
         val dir = currentDir
         viewModelScope.launch {
             repository.createFolder(dir)
-            load(dir)
+            load(currentDir)
+        }
+    }
+
+    fun importZip(uri: Uri) {
+        val dir = currentDir
+        _uiState.update { it.copy(isImporting = true) }
+        viewModelScope.launch {
+            val result = repository.importZip(uri, dir)
+            _uiState.update { it.copy(isImporting = false) }
+            result.fold(
+                onSuccess = { load(currentDir) },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(dialog = HomeDialog.Error("Import failed", error.message ?: "Could not import the zip"))
+                    }
+                },
+            )
         }
     }
 

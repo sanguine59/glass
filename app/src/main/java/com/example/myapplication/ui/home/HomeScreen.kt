@@ -1,6 +1,8 @@
 package com.example.myapplication.ui.home
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -47,6 +50,10 @@ fun HomeScreen(
     val black = colorResource(R.color.black)
     val white = colorResource(R.color.white)
 
+    val zipPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) viewModel.importZip(uri)
+    }
+
     BackHandler(enabled = !state.isRoot) { viewModel.navigateUp() }
 
     Column(
@@ -69,12 +76,20 @@ fun HomeScreen(
                 overflow = TextOverflow.StartEllipsis,
                 modifier = Modifier.weight(1f),
             )
-            TextButton(onClick = viewModel::addFolder) {
+            TextButton(onClick = viewModel::showCreate) {
                 Text(text = "+", color = white, fontSize = 24.sp)
             }
         }
 
-        HorizontalDivider(color = white)
+        if (state.isImporting) {
+            LinearProgressIndicator(
+                color = white,
+                trackColor = white.copy(alpha = 0.2f),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else {
+            HorizontalDivider(color = white)
+        }
 
         if (state.entries.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -97,6 +112,14 @@ fun HomeScreen(
     }
 
     when (val dialog = state.dialog) {
+        HomeDialog.Create -> CreateDialog(
+            onNewFolder = viewModel::addFolder,
+            onImportZip = {
+                viewModel.dismissDialog()
+                zipPicker.launch(ZIP_MIME_TYPES)
+            },
+            onDismiss = viewModel::dismissDialog,
+        )
         is HomeDialog.Actions -> ActionsDialog(
             entry = dialog.entry,
             onRename = { viewModel.showRename(dialog.entry) },
@@ -115,7 +138,44 @@ fun HomeScreen(
             onConfirm = { viewModel.delete(dialog.entry) },
             onDismiss = viewModel::dismissDialog,
         )
+        is HomeDialog.Error -> ErrorDialog(
+            title = dialog.title,
+            message = dialog.message,
+            onDismiss = viewModel::dismissDialog,
+        )
         null -> Unit
+    }
+}
+
+private val ZIP_MIME_TYPES = arrayOf("application/zip", "application/x-zip-compressed", "application/x-zip")
+
+@Composable
+private fun CreateDialog(
+    onNewFolder: () -> Unit,
+    onImportZip: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    MonoDialog(title = "New", onDismiss = onDismiss) {
+        MonoButton(text = "New folder", onClick = onNewFolder, modifier = Modifier.fillMaxWidth())
+        MonoButton(text = "Import .zip", onClick = onImportZip, modifier = Modifier.fillMaxWidth())
+        MonoButton(text = "Cancel", onClick = onDismiss, modifier = Modifier.fillMaxWidth())
+    }
+}
+
+@Composable
+private fun ErrorDialog(
+    title: String,
+    message: String,
+    onDismiss: () -> Unit,
+) {
+    MonoDialog(title = title, onDismiss = onDismiss) {
+        Text(text = message, color = colorResource(R.color.white))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            MonoButton(text = "OK", onClick = onDismiss)
+        }
     }
 }
 
