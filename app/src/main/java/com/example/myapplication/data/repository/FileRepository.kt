@@ -95,6 +95,12 @@ class FileRepository(
             .map { if (it == 1) base else "$base ($it)" }
             .first { !storage.exists(dir, it) }
 
+    suspend fun findProjectRoot(path: String): File? = withContext(Dispatchers.IO) {
+        generateSequence(File(path).parentFile) { dir -> dir.parentFile.takeUnless { storage.isRoot(dir) } }
+            .takeWhile { storage.contains(it) }
+            .firstOrNull { File(it, "package.json").isFile }
+    }
+
     suspend fun open(path: String): Result<FileContent> = withContext(Dispatchers.IO) {
         runCatching {
             val file = File(path)

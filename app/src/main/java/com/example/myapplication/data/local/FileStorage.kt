@@ -73,10 +73,12 @@ class FileStorage(context: Context) {
 
     fun isRoot(dir: File): Boolean = dir.canonicalFile == root
 
-    private fun requireInside(file: File) {
+    fun contains(file: File): Boolean {
         val path = file.canonicalPath
-        require(path == root.path || path.startsWith(root.path + File.separator)) {
-            "$path is outside ${root.path}"
-        }
+        return path == root.path || path.startsWith(root.path + File.separator)
+    }
+
+    private fun requireInside(file: File) {
+        require(contains(file)) { "${file.canonicalPath} is outside ${root.path}" }
     }
 }

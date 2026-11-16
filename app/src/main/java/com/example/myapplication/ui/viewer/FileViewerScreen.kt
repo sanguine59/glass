@@ -3,6 +3,7 @@ package com.example.myapplication.ui.viewer
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -15,11 +16,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,12 +36,14 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.myapplication.R
 import com.example.myapplication.data.model.CodeLine
 import com.example.myapplication.data.model.FileContent
+import com.example.myapplication.data.model.isActive
 import java.util.Locale
 
 @Composable
@@ -56,36 +63,82 @@ fun FileViewerScreen(
         onBack()
     }
 
-    Column(
+    val runState by viewModel.runState.collectAsState()
+    val logs by viewModel.logs.collectAsState()
+    var panelHeight by rememberSaveable { mutableFloatStateOf(PANEL_MIN_HEIGHT.value) }
+
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(black)
             .safeDrawingPadding(),
     ) {
-        Text(
-            text = state.name,
-            color = white,
-            fontSize = 20.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        )
+        val density = LocalDensity.current
+        val maxPanel = (maxHeight - 56.dp).coerceAtLeast(PANEL_MIN_HEIGHT)
+        val panel = panelHeight.dp.coerceIn(PANEL_MIN_HEIGHT, maxPanel)
+        val expandedPanel = (maxHeight * 0.4f).coerceIn(PANEL_MIN_HEIGHT, maxPanel)
+        val isActive = runState.isActive
 
-        HorizontalDivider(color = white)
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = state.name,
+                    color = white,
+                    fontSize = 20.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(vertical = 12.dp),
+                )
+                TextButton(
+                    onClick = {
+                        if (!isActive && panel <= PANEL_MIN_HEIGHT) panelHeight = expandedPanel.value
+                        viewModel.onRunClick()
+                    },
+                    enabled = isActive || state.projectPath != null,
+                ) {
+                    Text(
+                        text = if (isActive) "stop" else "run",
+                        color = if (isActive || state.projectPath != null) white else white.copy(alpha = 0.3f),
+                        fontSize = 16.sp,
+                    )
+                }
+            }
 
-        val content = state.content
-        when {
-            state.isLoading -> Message("loading", white)
-            state.error != null -> Message(state.error.orEmpty(), white)
-            content is FileContent.Binary -> Message("binary file, can't be displayed", white)
-            content is FileContent.TooLarge -> Message("file too large to display (${formatSize(content.bytes)})", white)
-            content is FileContent.Text && content.lines.isEmpty() -> Message("empty file", white)
-            content is FileContent.Text -> CodeView(content.lines, white)
+            HorizontalDivider(color = white)
+
+            Box(modifier = Modifier.weight(1f)) {
+                val content = state.content
+                when {
+                    state.isLoading -> Message("loading", white)
+                    state.error != null -> Message(state.error.orEmpty(), white)
+                    content is FileContent.Binary -> Message("binary file, can't be displayed", white)
+                    content is FileContent.TooLarge -> Message("file too large to display (${formatSize(content.bytes)})", white)
+                    content is FileContent.Text && content.lines.isEmpty() -> Message("empty file", white)
+                    content is FileContent.Text -> CodeView(content.lines, white)
+                }
+            }
+
+            RunPanel(
+                runState = runState,
+                logs = logs,
+                height = panel,
+                onDrag = { delta ->
+                    val next = panel - with(density) { delta.toDp() }
+                    panelHeight = next.coerceIn(PANEL_MIN_HEIGHT, maxPanel).value
+                },
+            )
         }
     }
 }
+
+private val PANEL_MIN_HEIGHT = 48.dp
 
 @Composable
 private fun CodeView(lines: List<CodeLine>, white: Color) {
