@@ -57,6 +57,18 @@ class FileStorage(context: Context) {
         }
     }
 
+    fun write(file: File, bytes: ByteArray) {
+        requireInside(file)
+        val parent = file.parentFile ?: error("${file.name} has no parent folder")
+        val temp = File(parent, ".${file.name}.glass-tmp")
+        temp.writeBytes(bytes)
+        if (file.canExecute()) temp.setExecutable(true, false)
+        if (!temp.renameTo(file)) {
+            temp.delete()
+            error("could not save ${file.name}")
+        }
+    }
+
     fun newStagingDir(): File = File(staging, UUID.randomUUID().toString()).apply { mkdirs() }
 
     fun moveInto(source: File, dir: File, name: String): File {

@@ -1,15 +1,18 @@
 package com.example.myapplication.ui.viewer
 
 import android.app.Application
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.myapplication.GlassApplication
+import com.example.myapplication.data.model.FileContent
 import com.example.myapplication.data.model.RunState
 import com.example.myapplication.data.model.isActive
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -33,13 +36,56 @@ class FileViewerViewModel(application: Application) : AndroidViewModel(applicati
         _uiState.value = FileViewerUiState(path = path, name = File(path).name)
         loadJob = viewModelScope.launch {
             val project = repository.findProjectRoot(path)
-            _uiState.value = _uiState.value.copy(projectPath = project?.absolutePath)
+            _uiState.update { it.copy(projectPath = project?.absolutePath) }
             repository.open(path).fold(
                 onSuccess = { content ->
-                    _uiState.value = _uiState.value.copy(isLoading = false, content = content)
+                    _uiState.update {
+                        if (content is FileContent.Editable) {
+                            it.copy(
+                                isLoading = false,
+                                content = content,
+                                editor = TextFieldState(content.text),
+                                savedText = content.text,
+                                format = content.format,
+                            )
+                        } else {
+                            it.copy(isLoading = false, content = content)
+                        }
+                    }
                 },
                 onFailure = { error ->
-                    _uiState.value = _uiState.value.copy(isLoading = false, error = error.message ?: "Could not open file")
+                    _uiState.update { it.copy(isLoading = false, error = error.message ?: "Could not open file") }
+                },
+            )
+        }
+    }
+
+    fun save(onSaved: () -> Unit = {}) {
+        val state = _uiState.value
+        if (state.isSaving) return
+        val path = state.path
+        val editor = state.editor
+        val format = state.format
+        if (path == null || editor == null || format == null) {
+            onSaved()
+            return
+        }
+        val text = editor.text.toString()
+        if (text == state.savedText) {
+            onSaved()
+            return
+        }
+        _uiState.update { it.copy(isSaving = true) }
+        viewModelScope.launch {
+            repository.save(path, text, format).fold(
+                onSuccess = {
+                    _uiState.update { it.copy(isSaving = false, savedText = text) }
+                    onSaved()
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(isSaving = false, dialog = ViewerDialog.SaveFailed(error.message ?: "Could not save"))
+                    }
                 },
             )
         }
@@ -51,7 +97,18 @@ class FileViewerViewModel(application: Application) : AndroidViewModel(applicati
             return
         }
         val project = _uiState.value.projectPath ?: return
-        runner.run(File(project))
+        save { runner.run(File(project)) }
+    }
+
+    fun requestClose(): Boolean {
+        val state = _uiState.value
+        val dirty = state.editor?.text?.contentEquals(state.savedText) == false
+        if (dirty) _uiState.update { it.copy(dialog = ViewerDialog.UnsavedChanges) }
+        return !dirty
+    }
+
+    fun dismissDialog() {
+        _uiState.update { it.copy(dialog = null) }
     }
 
     fun close() {

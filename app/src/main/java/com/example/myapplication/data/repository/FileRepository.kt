@@ -6,6 +6,7 @@ import com.example.myapplication.data.local.ZipImporter
 import com.example.myapplication.data.model.CodeLine
 import com.example.myapplication.data.model.FileContent
 import com.example.myapplication.data.model.FileEntry
+import com.example.myapplication.data.model.TextFormat
 import com.example.myapplication.util.TextSniffer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -98,6 +99,7 @@ class FileRepository(
     suspend fun findProjectRoot(path: String): File? = withContext(Dispatchers.IO) {
         generateSequence(File(path).parentFile) { dir -> dir.parentFile.takeUnless { storage.isRoot(dir) } }
             .takeWhile { storage.contains(it) }
+            .filterNot { dir -> "node_modules" in dir.relativeTo(storage.root).invariantSeparatorsPath.split('/') }
             .firstOrNull { File(it, "package.json").isFile }
     }
 
@@ -108,13 +110,31 @@ class FileRepository(
             when {
                 !TextSniffer.isText(storage.read(file, SAMPLE_BYTES)) -> FileContent.Binary
                 size > MAX_TEXT_BYTES -> FileContent.TooLarge(size)
-                else -> FileContent.Text(toLines(storage.read(file, MAX_TEXT_BYTES).decodeToString()))
+                size > MAX_EDITABLE_BYTES -> FileContent.Text(toLines(storage.read(file, MAX_TEXT_BYTES).decodeToString()))
+                else -> editable(storage.read(file, MAX_EDITABLE_BYTES).decodeToString())
             }
         }
     }
 
+    suspend fun save(path: String, text: String, format: TextFormat): Result<Unit> = writeLock.withLock {
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val body = if (format.crlf) text.replace("\n", "\r\n") else text
+                storage.write(File(path), ((if (format.bom) BOM else "") + body).toByteArray())
+            }
+        }
+    }
+
+    private fun editable(raw: String): FileContent.Editable {
+        val bom = raw.startsWith(BOM)
+        val body = raw.removePrefix(BOM)
+        val crlf = "\r\n" in body
+        val text = if (crlf) body.replace("\r\n", "\n") else body
+        return FileContent.Editable(text, TextFormat(crlf = crlf, bom = bom))
+    }
+
     private fun toLines(text: String): List<CodeLine> {
-        val body = text.removePrefix("\uFEFF")
+        val body = text.removePrefix(BOM)
         if (body.isEmpty()) return emptyList()
         val lines = body.split('\n').toMutableList()
         if (lines.size > 1 && lines.last().isEmpty()) lines.removeAt(lines.lastIndex)
@@ -133,6 +153,8 @@ class FileRepository(
     private companion object {
         const val SAMPLE_BYTES = 8 * 1024
         const val MAX_TEXT_BYTES = 2 * 1024 * 1024
+        const val MAX_EDITABLE_BYTES = 512 * 1024
+        const val BOM = "\uFEFF"
         const val MAX_ROW_CHARS = 1000
     }
 }

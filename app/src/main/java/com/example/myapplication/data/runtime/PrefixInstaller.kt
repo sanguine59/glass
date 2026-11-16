@@ -3,6 +3,7 @@ package com.example.myapplication.data.runtime
 import android.content.Context
 import android.system.ErrnoException
 import android.system.Os
+import android.system.OsConstants
 import com.example.myapplication.util.AssetUnpacker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -17,8 +18,10 @@ class PrefixInstaller(context: Context, private val node: NodeRuntime) {
     private val stamp: File get() = File(node.prefix, STAMP_FILE)
 
     val isInstalled: Boolean
-        get() = stamp.isFile && stamp.readText().trim() == version() &&
-            nodeLink.exists() && node.npmCli.isFile
+        get() = isUnpacked && nodeLink.exists()
+
+    private val isUnpacked: Boolean
+        get() = stamp.isFile && stamp.readText().trim() == version() && node.npmCli.isFile
 
     val nodeLink: File get() = File(binDir, "node")
 
@@ -31,6 +34,11 @@ class PrefixInstaller(context: Context, private val node: NodeRuntime) {
     ): Result<String> = withContext(Dispatchers.IO) {
         runCatching {
             if (!force && isInstalled) return@runCatching "prefix already installed"
+            if (!force && isUnpacked) {
+                onProgress("relinking $nodeLink -> ${node.binary.name}")
+                linkNode()
+                return@runCatching "node relinked"
+            }
 
             node.prepare()
             if (libDir.exists()) {
@@ -67,7 +75,11 @@ class PrefixInstaller(context: Context, private val node: NodeRuntime) {
     }
 
     private fun linkNode() {
-        if (nodeLink.exists() || isSymlink(nodeLink)) nodeLink.delete()
+        try {
+            Os.remove(nodeLink.absolutePath)
+        } catch (e: ErrnoException) {
+            if (e.errno != OsConstants.ENOENT) throw e
+        }
         try {
             Os.symlink(node.binary.absolutePath, nodeLink.absolutePath)
         } catch (e: ErrnoException) {
@@ -75,9 +87,6 @@ class PrefixInstaller(context: Context, private val node: NodeRuntime) {
         }
         nodeLink.setExecutable(true, false)
     }
-
-    private fun isSymlink(f: File): Boolean =
-        runCatching { f.canonicalFile != f.absoluteFile }.getOrDefault(false)
 
     fun diagnostics(): String = buildString {
         appendLine("prefix     ${node.prefix.absolutePath}")

@@ -98,10 +98,17 @@ class ProjectRunner(
         val tsc = node.tscEntry(project)
         if (File(project, "tsconfig.json").isFile && tsc.isFile) {
             step(name, "typechecking")
-            val code = exec(project, listOf(tsc.absolutePath, "--noEmit", "--pretty", "false"), "$ tsc --noEmit")
+            val ready = prepareTypescript(project, tsc)
             if (stopping) return
-            if (code != 0) return fail(project, "typecheck failed (exit $code)")
-            log("typecheck passed")
+            if (ready) {
+                val args = if (usesReferences(project)) listOf("-b") else listOf("--noEmit")
+                val code = exec(project, listOf(tsc.absolutePath) + args, "$ tsc ${args.joinToString(" ")}")
+                if (stopping) return
+                if (code != 0) return fail(project, "typecheck failed (exit $code)")
+                log("typecheck passed")
+            } else {
+                log("skipping typecheck: this typescript compiler can't run on this device")
+            }
         } else {
             log("skipping typecheck (no tsconfig.json or typescript)")
         }
@@ -139,6 +146,33 @@ class ProjectRunner(
             process = null
         }
     }
+
+    private fun prepareTypescript(project: File, tsc: File): Boolean {
+        val version = typescriptVersion(project) ?: return true
+        if ((version.substringBefore('.').toIntOrNull() ?: 0) < NATIVE_TYPESCRIPT_MAJOR) return true
+
+        val platformDir = File(project, "node_modules/$TS_ANDROID_PACKAGE")
+        if (!platformDir.isDirectory) {
+            log("typescript $version has no android build, using its linux-arm64 compiler instead")
+            val spec = "$TS_ANDROID_PACKAGE@npm:$TS_LINUX_PACKAGE@$version"
+            val code = exec(
+                project,
+                listOf(node.npmCli.absolutePath, "install", "--no-save", "--force", "--prefer-offline", "--no-audit", "--no-fund", spec),
+                "$ npm install --no-save $TS_LINUX_PACKAGE@$version",
+            )
+            if (code != 0 || stopping) return false
+        }
+        File(platformDir, "lib/tsc").setExecutable(true, false)
+
+        return exec(project, listOf(tsc.absolutePath, "--version"), "$ tsc --version") == 0
+    }
+
+    private fun typescriptVersion(project: File): String? = runCatching {
+        JSONObject(File(project, "node_modules/typescript/package.json").readText()).getString("version")
+    }.getOrNull()
+
+    private fun usesReferences(project: File): Boolean =
+        REFERENCES.containsMatchIn(File(project, "tsconfig.json").readText())
 
     private fun detectServer(project: String, line: String) {
         if (_state.value is RunState.Serving) return
@@ -180,5 +214,9 @@ class ProjectRunner(
         val ANSI = Regex("\u001B\\[[0-9;?]*[ -/]*[@-~]")
         val LOCAL_URL = Regex("""Local:\s+(https?://\S+)""")
         val PORT = Regex(""":(\d+)""")
+        val REFERENCES = Regex(""""references"\s*:""")
+        const val NATIVE_TYPESCRIPT_MAJOR = 7
+        const val TS_ANDROID_PACKAGE = "@typescript/typescript-android-arm64"
+        const val TS_LINUX_PACKAGE = "@typescript/typescript-linux-arm64"
     }
 }
