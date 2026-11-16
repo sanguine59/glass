@@ -4,10 +4,8 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.myapplication.data.local.FileStorage
-import com.example.myapplication.data.local.ZipImporter
+import com.example.myapplication.GlassApplication
 import com.example.myapplication.data.model.FileEntry
-import com.example.myapplication.data.repository.FileRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,7 +16,7 @@ import java.io.File
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository = FileRepository(FileStorage(application), ZipImporter(application))
+    private val repository = (application as GlassApplication).container.fileRepository
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
