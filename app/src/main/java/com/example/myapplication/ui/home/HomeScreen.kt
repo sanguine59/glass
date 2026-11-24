@@ -45,6 +45,7 @@ import com.example.myapplication.ui.components.MonoDialog
 fun HomeScreen(
     onOpenFile: (String) -> Unit,
     viewModel: HomeViewModel = viewModel(),
+    onSettingsClick : () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
     val black = colorResource(R.color.black)
@@ -76,6 +77,9 @@ fun HomeScreen(
                 overflow = TextOverflow.StartEllipsis,
                 modifier = Modifier.weight(1f),
             )
+            TextButton(onClick = onSettingsClick) {
+                Text(text = "=", color = white, fontSize = 24.sp)
+            }
             TextButton(onClick = viewModel::showCreate) {
                 Text(text = "+", color = white, fontSize = 24.sp)
             }
@@ -148,6 +152,11 @@ fun HomeScreen(
 }
 
 private val ZIP_MIME_TYPES = arrayOf("application/zip", "application/x-zip-compressed", "application/x-zip")
+
+@Composable
+private fun SettingScreen(onBack: () -> Unit){
+    BackHandler(onBack = onBack)
+}
 
 @Composable
 private fun CreateDialog(

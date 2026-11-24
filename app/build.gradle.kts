@@ -13,7 +13,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.myapplication"
-        minSdk = 23
+        minSdk = 26
 
         //noinspection ExpiredTargetSdkVersion
         targetSdk = 28

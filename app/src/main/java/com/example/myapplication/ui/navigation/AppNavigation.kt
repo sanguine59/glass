@@ -13,11 +13,14 @@ import com.example.myapplication.ui.viewer.FileViewerScreen
 fun AppNavigation() {
     val stateHolder = rememberSaveableStateHolder()
     var openFile by rememberSaveable { mutableStateOf<String?>(null) }
-
+    var openSettings by rememberSaveable { mutableStateOf(false)}
     val path = openFile
     if (path == null) {
         stateHolder.SaveableStateProvider(HOME) {
-            HomeScreen(onOpenFile = { openFile = it })
+            HomeScreen(
+                onOpenFile = { openFile = it },
+                onSettingsClick = {openSettings = true}
+            )
         }
     } else {
         FileViewerScreen(path = path, onBack = { openFile = null })
