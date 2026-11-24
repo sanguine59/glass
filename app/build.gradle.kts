@@ -13,7 +13,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.myapplication"
-        minSdk = 27
+        minSdk = 23
 
         //noinspection ExpiredTargetSdkVersion
         targetSdk = 28
@@ -48,4 +48,6 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation("ai.koog:koog-agents:1.3.0")
+    implementation("ai.koog:koog-agents-additions:1.3.0-beta")
 }
