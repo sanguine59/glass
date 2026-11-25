@@ -34,6 +34,9 @@ android {
         jniLibs {
             useLegacyPackaging = true
         }
+        resources {
+            pickFirsts += "META-INF/services/*"
+        }
     }
 
     compileOptions {
@@ -50,4 +53,6 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation("ai.koog:koog-agents:1.3.0")
     implementation("ai.koog:koog-agents-additions:1.3.0-beta")
+    implementation("ai.koog:http-client-ktor:1.3.0")
+    implementation("io.ktor:ktor-client-okhttp:3.1.1")
 }

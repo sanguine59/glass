@@ -1,5 +1,6 @@
 package com.example.myapplication.ui.navigation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -14,19 +15,21 @@ import com.example.myapplication.ui.viewer.FileViewerScreen
 fun AppNavigation() {
     val stateHolder = rememberSaveableStateHolder()
     var openFile by rememberSaveable { mutableStateOf<String?>(null) }
-    var openSettings by rememberSaveable { mutableStateOf(false)}
+    var openSettings by rememberSaveable { mutableStateOf(false) }
     val path = openFile
-    if (path == null) {
+
+    if (openSettings) {
+        BackHandler { openSettings = false }
+        stateHolder.SaveableStateProvider(SETTINGS) {
+            SettingScreen(
+                onBack = { openSettings = false }
+            )
+        }
+    } else if (path == null) {
         stateHolder.SaveableStateProvider(HOME) {
             HomeScreen(
                 onOpenFile = { openFile = it },
-                onSettingsClick = {openSettings = true}
-            )
-        }
-    } else if(openSettings) {
-        stateHolder.SaveableStateProvider(SETTINGS) {
-            SettingScreen (
-                onBack = {openSettings = false}
+                onSettingsClick = { openSettings = true }
             )
         }
     } else {
