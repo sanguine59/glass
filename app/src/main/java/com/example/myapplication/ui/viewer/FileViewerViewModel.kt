@@ -60,6 +60,25 @@ class FileViewerViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    fun reload() {
+        val currentPath = _uiState.value.path ?: return
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            repository.open(currentPath).onSuccess { content ->
+                if (content is FileContent.Editable) {
+                    _uiState.update {
+                        it.copy(
+                            content = content,
+                            editor = TextFieldState(content.text),
+                            savedText = content.text,
+                            format = content.format
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     fun save(onSaved: () -> Unit = {}) {
         val state = _uiState.value
         if (state.isSaving) return
