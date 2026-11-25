@@ -2,20 +2,4 @@
     <style name="Theme.Glass" parent="android:Theme.DeviceDefault.NoActionBar">
         <item name="android:windowBackground">@color/black</item>
     </style>
-
-    <style name="Theme.GlassCatppuccin" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/latte_mauve</item>
-        <item name="colorOnPrimary">@color/latte_base</item>
-        <item name="colorSecondary">@color/latte_blue</item>
-        <item name="colorOnSecondary">@color/latte_base</item>
-        <item name="android:colorBackground">@color/latte_base</item>
-        <item name="colorSurface">@color/latte_base</item>
-        <item name="colorSurfaceVariant">@color/latte_surface0</item>
-        <item name="colorOnSurface">@color/latte_text</item>
-        <item name="colorOnBackground">@color/latte_text</item>
-        <item name="colorOutline">@color/latte_overlay0</item>
-        <item name="colorError">@color/latte_red</item>
-        <item name="android:statusBarColor">@color/latte_mantle</item>
-        <item name="android:windowLightStatusBar">true</item>
-    </style>
 </resources>

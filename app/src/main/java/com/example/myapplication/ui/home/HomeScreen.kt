@@ -1,10 +1,10 @@
 package com.example.myapplication.ui.home
 
+import ai.koog.prompt.text.text
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,12 +19,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -34,27 +33,27 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.myapplication.GlassApplication
+import com.example.myapplication.R
 import com.example.myapplication.data.model.FileEntry
 import com.example.myapplication.ui.components.MonoButton
 import com.example.myapplication.ui.components.MonoDialog
 import com.example.myapplication.util.ApiKeyStorage
-import com.example.myapplication.util.ThemeMode
 
 @Composable
 fun HomeScreen(
     onOpenFile: (String) -> Unit,
-    onSettingsClick: () -> Unit,
     viewModel: HomeViewModel = viewModel(),
+    onSettingsClick : () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
-    val black = MaterialTheme.colorScheme.background
-    val white = MaterialTheme.colorScheme.onBackground
+    val black = colorResource(R.color.black)
+    val white = colorResource(R.color.white)
 
     val zipPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) viewModel.importZip(uri)
@@ -159,16 +158,13 @@ fun HomeScreen(
 private val ZIP_MIME_TYPES = arrayOf("application/zip", "application/x-zip-compressed", "application/x-zip")
 
 @Composable
-fun SettingScreen(onBack: () -> Unit) {
+fun SettingScreen(onBack: () -> Unit){
     BackHandler(onBack = onBack)
-    val black = MaterialTheme.colorScheme.background
-    val white = MaterialTheme.colorScheme.onBackground
+    val black = colorResource(R.color.black)
+    val white = colorResource(R.color.white)
     val context = LocalContext.current
-    val app = context.applicationContext as GlassApplication
-    val themeMode by app.themePrefs.mode.collectAsState()
     val apiKeyStorage = remember { ApiKeyStorage(context) }
     var userInput by remember { mutableStateOf(apiKeyStorage.getOpenRouterKey().orEmpty()) }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -181,40 +177,14 @@ fun SettingScreen(onBack: () -> Unit) {
                 .padding(start = 16.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TextButton(onClick = {
-                apiKeyStorage.saveOpenRouterKey(apiKey = userInput.trim())
+            TextButton(onClick = { apiKeyStorage.saveOpenRouterKey(
+                apiKey = userInput.trim())
                 onBack()
             }) {
                 Text(text = "Save", color = white, fontSize = 24.sp)
             }
         }
-        TextArea(text = userInput, onTextChange = { userInput = it })
-
-        Text(
-            text = "Theme",
-            color = MaterialTheme.colorScheme.primary,
-            fontSize = 14.sp,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-        )
-        listOf(
-            ThemeMode.ORIGINAL to "Original (black)",
-            ThemeMode.MOCHA to "Catppuccin Mocha (dark)",
-            ThemeMode.LATTE to "Catppuccin Latte (light)",
-        ).forEach { (mode, label) ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { app.themePrefs.setMode(mode) }
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                RadioButton(
-                    selected = themeMode == mode,
-                    onClick = { app.themePrefs.setMode(mode) },
-                )
-                Text(text = label, color = white, fontSize = 16.sp)
-            }
-        }
+        TextArea(text = userInput, onTextChange = {userInput = it})
     }
 }
 
@@ -223,7 +193,7 @@ fun TextArea(
     text: String,
     onTextChange: (String) -> Unit
 ) {
-    val white = MaterialTheme.colorScheme.onBackground
+    val white = colorResource(R.color.white)
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -231,7 +201,7 @@ fun TextArea(
         OutlinedTextField(
             value = text,
             onValueChange = onTextChange,
-            label = { Text("Enter Secret") },
+            label = {Text("Enter Secret")},
             modifier = Modifier.fillMaxWidth()
         )
     }
@@ -257,7 +227,7 @@ private fun ErrorDialog(
     onDismiss: () -> Unit,
 ) {
     MonoDialog(title = title, onDismiss = onDismiss) {
-        Text(text = message, color = MaterialTheme.colorScheme.onSurface)
+        Text(text = message, color = colorResource(R.color.white))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End,
@@ -275,7 +245,7 @@ private fun EntryRow(
 ) {
     Text(
         text = if (entry.isDirectory) "${entry.name}/" else entry.name,
-        color = MaterialTheme.colorScheme.onBackground,
+        color = colorResource(R.color.white),
         fontSize = 16.sp,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
@@ -311,7 +281,7 @@ private fun RenameDialog(
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val white = MaterialTheme.colorScheme.onSurface
+    val white = colorResource(R.color.white)
     var name by remember(entry.path) { mutableStateOf(entry.name) }
 
     MonoDialog(title = "Rename", onDismiss = onDismiss) {
@@ -347,7 +317,7 @@ private fun DeleteDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val white = MaterialTheme.colorScheme.onSurface
+    val white = colorResource(R.color.white)
 
     MonoDialog(title = "Delete", onDismiss = onDismiss) {
         Text(

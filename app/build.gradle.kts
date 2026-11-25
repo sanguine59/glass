@@ -13,7 +13,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.myapplication"
-        minSdk = 27
+        minSdk = 26
 
         //noinspection ExpiredTargetSdkVersion
         targetSdk = 28
@@ -34,6 +34,9 @@ android {
         jniLibs {
             useLegacyPackaging = true
         }
+        resources {
+            pickFirsts += "META-INF/services/*"
+        }
     }
 
     compileOptions {
@@ -48,7 +51,6 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation("com.google.android.material:material:1.12.0")
     implementation("ai.koog:koog-agents:1.3.0")
     implementation("ai.koog:koog-agents-additions:1.3.0-beta")
     implementation("ai.koog:http-client-ktor:1.3.0")
