@@ -2,4 +2,26 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Latte -->
+    <color name="latte_base">#EFF1F5</color>
+    <color name="latte_mantle">#E6E9EF</color>
+    <color name="latte_crust">#DCE0E8</color>
+    <color name="latte_surface0">#CCD0DA</color>
+    <color name="latte_overlay0">#9CA0B0</color>
+    <color name="latte_text">#4C4F69</color>
+    <color name="latte_mauve">#8839EF</color>
+    <color name="latte_blue">#1E66F5</color>
+    <color name="latte_red">#D20F39</color>
+
+    <!-- Mocha -->
+    <color name="mocha_base">#1E1E2E</color>
+    <color name="mocha_mantle">#181825</color>
+    <color name="mocha_crust">#11111B</color>
+    <color name="mocha_surface0">#313244</color>
+    <color name="mocha_overlay0">#6C7086</color>
+    <color name="mocha_text">#CDD6F4</color>
+    <color name="mocha_mauve">#CBA6F7</color>
+    <color name="mocha_blue">#89B4FA</color>
+    <color name="mocha_red">#F38BA8</color>
 </resources>
