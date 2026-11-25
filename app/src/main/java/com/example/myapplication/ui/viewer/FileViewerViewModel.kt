@@ -1,5 +1,16 @@
 package com.example.myapplication.ui.viewer
 
+import ai.koog.agents.core.agent.AIAgent
+import ai.koog.agents.core.tools.ToolRegistry
+import ai.koog.agents.features.eventHandler.feature.handleEvents
+import ai.koog.http.client.KoogHttpClient
+import ai.koog.http.client.ktor.KtorKoogHttpClient
+import ai.koog.http.client.ktor.fromKtorClient
+import ai.koog.prompt.executor.clients.openrouter.OpenRouterLLMClient
+import ai.koog.prompt.executor.llms.MultiLLMPromptExecutor
+import ai.koog.prompt.llm.LLMCapability
+import ai.koog.prompt.llm.LLMProvider
+import ai.koog.prompt.llm.LLModel
 import android.app.Application
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.lifecycle.AndroidViewModel
@@ -8,12 +19,21 @@ import com.example.myapplication.GlassApplication
 import com.example.myapplication.data.model.FileContent
 import com.example.myapplication.data.model.RunState
 import com.example.myapplication.data.model.isActive
+import io.github.oshai.kotlinlogging.KLogger
+import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.client.HttpClient
+import io.ktor.client.HttpClientConfig
+import io.ktor.client.engine.okhttp.OkHttpEngine
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import okhttp3.OkHttp
+import org.slf4j.LoggerFactory
 import java.io.File
 
 class FileViewerViewModel(application: Application) : AndroidViewModel(application) {
@@ -57,6 +77,25 @@ class FileViewerViewModel(application: Application) : AndroidViewModel(applicati
                     _uiState.update { it.copy(isLoading = false, error = error.message ?: "Could not open file") }
                 },
             )
+        }
+    }
+
+    fun reload() {
+        val currentPath = _uiState.value.path ?: return
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            repository.open(currentPath).onSuccess { content ->
+                if (content is FileContent.Editable) {
+                    _uiState.update {
+                        it.copy(
+                            content = content,
+                            editor = TextFieldState(content.text),
+                            savedText = content.text,
+                            format = content.format
+                        )
+                    }
+                }
+            }
         }
     }
 
@@ -115,4 +154,76 @@ class FileViewerViewModel(application: Application) : AndroidViewModel(applicati
         loadJob?.cancel()
         _uiState.value = FileViewerUiState()
     }
+
+
+    fun runAgentInstruction(
+        instruction: String,
+        apiKey: String,
+        onStatus: (String) -> Unit
+    ) {
+        val state = _uiState.value
+        val rootPath = state.projectPath ?: state.path?.let { File(it).parent } ?: return
+        val workspaceDir = File(rootPath)
+
+        save {
+            viewModelScope.launch(Dispatchers.IO) {
+                onStatus("Starting agent...")
+
+                val workspaceTools = IdeWorkspaceTools(
+                    workspaceDir = workspaceDir,
+                    onFileModified = { modifiedFile ->
+                        val activePath = _uiState.value.path
+                        if (activePath != null && modifiedFile.canonicalPath == File(activePath).canonicalPath) {
+                            viewModelScope.launch(Dispatchers.Main) {
+                                reload()
+                            }
+                        }
+                    }
+                )
+
+                val autoFreeModel = LLModel(
+                    provider = LLMProvider.OpenRouter,
+                    id = "openrouter/free",
+                    capabilities = listOf(
+                        LLMCapability.Temperature,
+                        LLMCapability.Tools,
+                        LLMCapability.Completion
+                    ),
+                    contextLength = 200_000L
+                )
+                val openRouterClient = OpenRouterLLMClient(
+                    apiKey = apiKey,
+                    httpClientFactory = KtorKoogHttpClient.Factory()
+                )
+
+                val agent = AIAgent(
+                    promptExecutor = MultiLLMPromptExecutor(openRouterClient),
+                    llmModel = autoFreeModel,
+                    systemPrompt = """
+                    You are an embedded coding agent inside an Android IDE.
+                    Project root: ${workspaceDir.name}
+                    Currently open file: ${state.path?.let { File(it).relativeTo(workspaceDir).path } ?: "none"}
+                    Use your tools to inspect and edit files directly.
+                """.trimIndent(),
+                    toolRegistry = ToolRegistry { tools(workspaceTools) }
+                ) {
+                    handleEvents {
+                        onToolCallStarting { ctx ->
+                            onStatus("Running ${ctx.toolName}...")
+                        }
+                        onAgentCompleted { ctx ->
+                            onStatus("Done: ${ctx.result}")
+                        }
+                        onAgentExecutionFailed { ctx ->
+                            onStatus("Error: ${ctx.error.message}")
+                        }
+                    }
+                }
+
+                agent.run(instruction)
+            }
+        }
+    }
+
+    private fun tools(workspaceTools: Any) {}
 }

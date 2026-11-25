@@ -25,6 +25,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
@@ -78,7 +79,7 @@ fun FileViewerScreen(
     val runState by viewModel.runState.collectAsState()
     val logs by viewModel.logs.collectAsState()
     var panelHeight by rememberSaveable { mutableFloatStateOf(PANEL_MIN_HEIGHT.value) }
-
+    var showAgentBar by rememberSaveable { mutableStateOf(false) }
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
@@ -127,6 +128,16 @@ fun FileViewerScreen(
                     },
                     enabled = isActive || state.projectPath != null,
                 ) {
+                    TextButton(
+                        onClick = { showAgentBar = !showAgentBar },
+                        enabled = state.projectPath != null,
+                    ) {
+                        Text(
+                            text = if (showAgentBar) "close agent" else "agent",
+                            color = if (state.projectPath != null) white else white.copy(alpha = 0.3f),
+                            fontSize = 16.sp,
+                        )
+                    }
                     Text(
                         text = if (isActive) "stop" else "run",
                         color = if (isActive || state.projectPath != null) white else white.copy(alpha = 0.3f),
@@ -149,6 +160,9 @@ fun FileViewerScreen(
                     content is FileContent.Text && content.lines.isEmpty() -> Message("empty file", white)
                     content is FileContent.Text -> CodeView(content.lines, white)
                 }
+            }
+            if (showAgentBar) {
+                AgentPromptBar(viewModel = viewModel)
             }
 
             RunPanel(
