@@ -1,5 +1,6 @@
 package com.example.myapplication.ui.home
 
+import ai.koog.prompt.text.text
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,6 +23,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -30,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -40,6 +43,7 @@ import com.example.myapplication.R
 import com.example.myapplication.data.model.FileEntry
 import com.example.myapplication.ui.components.MonoButton
 import com.example.myapplication.ui.components.MonoDialog
+import com.example.myapplication.util.ApiKeyStorage
 
 @Composable
 fun HomeScreen(
@@ -154,8 +158,53 @@ fun HomeScreen(
 private val ZIP_MIME_TYPES = arrayOf("application/zip", "application/x-zip-compressed", "application/x-zip")
 
 @Composable
-private fun SettingScreen(onBack: () -> Unit){
+fun SettingScreen(onBack: () -> Unit){
     BackHandler(onBack = onBack)
+    val black = colorResource(R.color.black)
+    val white = colorResource(R.color.white)
+    val context = LocalContext.current
+    val apiKeyStorage = remember { ApiKeyStorage(context) }
+    var userInput by remember { mutableStateOf(apiKeyStorage.getOpenRouterKey().orEmpty()) }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(black)
+            .safeDrawingPadding()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TextButton(onClick = { apiKeyStorage.saveOpenRouterKey(
+                apiKey = userInput.trim())
+                onBack()
+            }) {
+                Text(text = "Save", color = white, fontSize = 24.sp)
+            }
+        }
+        TextArea(text = userInput, onTextChange = {userInput = it})
+    }
+}
+
+@Composable
+fun TextArea(
+    text: String,
+    onTextChange: (String) -> Unit
+) {
+    val white = colorResource(R.color.white)
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(text = "secret key", color = white)
+        OutlinedTextField(
+            value = text,
+            onValueChange = onTextChange,
+            label = {Text("Enter Secret")},
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
 }
 
 @Composable

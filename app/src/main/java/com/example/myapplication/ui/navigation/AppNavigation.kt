@@ -7,6 +7,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import com.example.myapplication.ui.home.HomeScreen
+import com.example.myapplication.ui.home.SettingScreen
 import com.example.myapplication.ui.viewer.FileViewerScreen
 
 @Composable
@@ -22,9 +23,16 @@ fun AppNavigation() {
                 onSettingsClick = {openSettings = true}
             )
         }
+    } else if(openSettings) {
+        stateHolder.SaveableStateProvider(SETTINGS) {
+            SettingScreen (
+                onBack = {openSettings = false}
+            )
+        }
     } else {
         FileViewerScreen(path = path, onBack = { openFile = null })
     }
 }
 
 private const val HOME = "home"
+private const val SETTINGS = "settings"
