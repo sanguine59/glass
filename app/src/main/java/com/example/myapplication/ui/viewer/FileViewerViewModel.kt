@@ -159,10 +159,12 @@ class FileViewerViewModel(application: Application) : AndroidViewModel(applicati
     fun runAgentInstruction(
         instruction: String,
         apiKey: String,
-        onStatus: (String) -> Unit
+        workspacePath: String? = null,
+        onFilesChanged: (() -> Unit)? = null,
+        onStatus: (String) -> Unit,
     ) {
         val state = _uiState.value
-        val rootPath = state.projectPath ?: state.path?.let { File(it).parent } ?: return
+        val rootPath = workspacePath ?: state.projectPath ?: state.path?.let { File(it).parent } ?: return
         val workspaceDir = File(rootPath)
 
         save {

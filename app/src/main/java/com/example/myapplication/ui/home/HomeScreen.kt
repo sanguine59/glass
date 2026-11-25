@@ -30,6 +30,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,16 +46,25 @@ import com.example.myapplication.ui.components.MonoButton
 import com.example.myapplication.ui.components.MonoDialog
 import com.example.myapplication.util.ApiKeyStorage
 import com.example.myapplication.util.ThemeMode
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.example.myapplication.ui.components.AgentToggleButton
+import com.example.myapplication.ui.viewer.AgentPromptBar
+import com.example.myapplication.ui.viewer.FileViewerViewModel
+import java.io.File
 
 @Composable
 fun HomeScreen(
     onOpenFile: (String) -> Unit,
     onSettingsClick: () -> Unit,
     viewModel: HomeViewModel = viewModel(),
+    agentViewModel: FileViewerViewModel = viewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
     val black = MaterialTheme.colorScheme.background
     val white = MaterialTheme.colorScheme.onBackground
+    var showAgentBar by rememberSaveable { mutableStateOf(false) }
+
+    val currentFolder: String? = state.entries.firstOrNull()?.let { File(it.path).parent }
 
     val zipPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) viewModel.importZip(uri)
@@ -82,6 +92,10 @@ fun HomeScreen(
                 overflow = TextOverflow.StartEllipsis,
                 modifier = Modifier.weight(1f),
             )
+            AgentToggleButton(
+                showing = showAgentBar,
+                onClick = { showAgentBar = !showAgentBar },
+            )
             TextButton(onClick = onSettingsClick) {
                 Text(text = "=", color = white, fontSize = 24.sp)
             }
@@ -101,11 +115,14 @@ fun HomeScreen(
         }
 
         if (state.entries.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentAlignment = Alignment.Center,
+            ) {
                 Text(text = "empty", color = white.copy(alpha = 0.5f))
             }
         } else {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
                 items(state.entries, key = { it.path }) { entry ->
                     EntryRow(
                         entry = entry,
@@ -117,6 +134,14 @@ fun HomeScreen(
                     HorizontalDivider(color = white.copy(alpha = 0.2f))
                 }
             }
+        }
+
+        if (showAgentBar) {
+            AgentPromptBar(
+                viewModel = agentViewModel,
+                workspacePath = currentFolder,
+                // onFilesChanged = { viewModel.<your reload function>() },
+            )
         }
     }
 
