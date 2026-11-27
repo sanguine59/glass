@@ -42,14 +42,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.myapplication.GlassApplication
 import com.example.myapplication.data.model.FileEntry
+import com.example.myapplication.ui.components.AgentToggleButton
 import com.example.myapplication.ui.components.MonoButton
 import com.example.myapplication.ui.components.MonoDialog
-import com.example.myapplication.util.ApiKeyStorage
-import com.example.myapplication.util.ThemeMode
-import androidx.compose.runtime.saveable.rememberSaveable
-import com.example.myapplication.ui.components.AgentToggleButton
 import com.example.myapplication.ui.viewer.AgentPromptBar
 import com.example.myapplication.ui.viewer.FileViewerViewModel
+import com.example.myapplication.util.ApiKeyStorage
+import com.example.myapplication.util.ThemeMode
 import java.io.File
 
 @Composable
